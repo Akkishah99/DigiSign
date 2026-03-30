@@ -2,7 +2,7 @@
 # More GitHub Actions for Azure: https://github.com/Azure/actions
 # More info on Python, GitHub Actions, and Azure Functions: https://aka.ms/python-webapps-actions
 
-name: Build and deploy Python project to Azure Function App - DigitalSignas
+name: Build and deploy C# project to Azure Function App - DigitalSignas
 
 on:
   push:
@@ -12,7 +12,7 @@ on:
 
 env:
   AZURE_FUNCTIONAPP_PACKAGE_PATH: '.' # set this to the path to your web app project, defaults to the repository root
-  PYTHON_VERSION: '3.13' # set this to the python version to use (supports 3.6, 3.7, 3.8)
+  DOTNET_VERSION: '6.0.x' # set this to the dotnet version to use
 
 jobs:
   build:
@@ -24,31 +24,33 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Python version
-        uses: actions/setup-python@v5
+      - name: Setup .NET version
+        uses: actions/setup-dotnet@v4
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Create and start virtual environment
-        run: |
-          python -m venv venv
-          source venv/bin/activate
+      - name: Restore NuGet packages
+        run: dotnet restore
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      - name: Build project
+        run: dotnet build --configuration Release
 
-      # Optional: Add step to run tests here
+      - name: Package for deployment
+        run: dotnet publish --configuration Release --output ./publish
 
       - name: Zip artifact for deployment
-        run: zip release.zip ./* -r
+        run: |
+          cd ./publish
+          zip -r ../release.zip ./*
+          cd ..
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
-          name: python-app
+          name: dotnet-app
           path: |
             release.zip
-            !venv/
+            !publish/
 
   deploy:
     runs-on: ubuntu-latest
@@ -61,7 +63,7 @@ jobs:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
-          name: python-app
+          name: dotnet-app
 
       - name: Unzip artifact for deployment
         run: |
